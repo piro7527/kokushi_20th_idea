@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>教員用ダッシュボード - 国家試験対策</title>
+    <title>ダッシュボード - 国家試験対策</title>
     <meta name="description" content="全学生の学習記録を一括確認">
     <link rel="stylesheet" href="style.css">
     <style>
@@ -100,9 +100,8 @@
 <body>
     <div class="container">
         <header>
-            <h1>👨‍🏫 教員用ダッシュボード</h1>
+            <h1>👨‍🏫 ダッシュボード</h1>
             <p class="subtitle">全学生の学習記録管理</p>
-            <a href="index.html" class="back-link">← 学生用ページ</a>
         </header>
 
         <!-- データ読み込み -->
@@ -228,7 +227,7 @@
     </div>
 
     <footer>
-        <p>© 2026 国家試験対策 学習記録システム - 教員用</p>
+        <p>© 2026 国家試験対策 学習記録システム</p>
     </footer>
 
     <script>
@@ -260,7 +259,7 @@
                 let authenticated = false;
 
                 for (let i = 0; i < attempts; i++) {
-                    const input = prompt(`教員用ダッシュボード\n\nパスワードを入力してください（残り ${attempts - i} 回）`);
+                    const input = prompt(`ダッシュボード\n\nパスワードを入力してください（残り ${attempts - i} 回）`);
 
                     if (input === null) {
                         // User cancelled
@@ -280,7 +279,7 @@
                 }
 
                 if (!authenticated) {
-                    alert('パスワードが間違っています。学生用ページに戻ります。');
+                    alert('パスワードが間違っています。');
                     window.location.href = 'index.html';
                     return;
                 }

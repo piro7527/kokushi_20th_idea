@@ -61,23 +61,6 @@ header .subtitle {
     color: white;
 }
 
-header .admin-link {
-    display: inline-block;
-    margin-top: 12px;
-    padding: 8px 16px;
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
-    text-decoration: none;
-    border-radius: 20px;
-    font-size: 0.85rem;
-    transition: var(--transition);
-}
-
-header .admin-link:hover {
-    background: rgba(255, 255, 255, 0.3);
-    transform: translateY(-1px);
-}
-
 /* Auth Tabs */
 .auth-tabs {
     display: flex;
