@@ -1,20 +1,33 @@
 // ============================================
 // 国家試験対策 学習記録アプリ - app.js
+// パスワード認証機能付き
 // ============================================
 
 // --- Constants ---
 const STORAGE_KEYS = {
     USER: 'kokushi_user',
-    RECORDS: 'kokushi_records'
+    RECORDS: 'kokushi_records',
+    USERS_DB: 'kokushi_users_db'  // 全ユーザーのデータベース
 };
 
 // --- DOM Elements ---
 const elements = {
-    registrationSection: document.getElementById('registration-section'),
+    authSection: document.getElementById('auth-section'),
     mainSection: document.getElementById('main-section'),
+    // Auth tabs
+    tabLogin: document.getElementById('tab-login'),
+    tabRegister: document.getElementById('tab-register'),
+    // Login form
+    loginForm: document.getElementById('login-form'),
+    loginStudentId: document.getElementById('login-student-id'),
+    loginPassword: document.getElementById('login-password'),
+    // Registration form
     registrationForm: document.getElementById('registration-form'),
     studentIdInput: document.getElementById('student-id'),
     studentNameInput: document.getElementById('student-name'),
+    studentPassword: document.getElementById('student-password'),
+    studentPasswordConfirm: document.getElementById('student-password-confirm'),
+    // Main section
     displayUserInfo: document.getElementById('display-user-info'),
     logoutBtn: document.getElementById('logout-btn'),
     recordForm: document.getElementById('record-form'),
@@ -34,16 +47,24 @@ const elements = {
 // --- State ---
 let currentUser = null;
 let records = [];
+let usersDB = {};  // { P22001: { id, name, password, registeredAt }, ... }
 let chart = null;
 
 // --- Initialize ---
 document.addEventListener('DOMContentLoaded', () => {
-    loadUser();
+    loadUsersDB();
+    loadCurrentUser();
     setupEventListeners();
 });
 
 // --- Event Listeners ---
 function setupEventListeners() {
+    // Auth tabs
+    elements.tabLogin.addEventListener('click', () => switchTab('login'));
+    elements.tabRegister.addEventListener('click', () => switchTab('register'));
+
+    // Forms
+    elements.loginForm.addEventListener('submit', handleLogin);
     elements.registrationForm.addEventListener('submit', handleRegistration);
     elements.recordForm.addEventListener('submit', handleRecordSubmit);
     elements.logoutBtn.addEventListener('click', handleLogout);
@@ -59,8 +80,44 @@ function setupEventListeners() {
     });
 }
 
+// --- Tab Switching ---
+function switchTab(tab) {
+    if (tab === 'login') {
+        elements.tabLogin.classList.add('active');
+        elements.tabRegister.classList.remove('active');
+        elements.loginForm.classList.remove('hidden');
+        elements.registrationForm.classList.add('hidden');
+    } else {
+        elements.tabLogin.classList.remove('active');
+        elements.tabRegister.classList.add('active');
+        elements.loginForm.classList.add('hidden');
+        elements.registrationForm.classList.remove('hidden');
+    }
+}
+
+// --- Users Database ---
+function loadUsersDB() {
+    const saved = localStorage.getItem(STORAGE_KEYS.USERS_DB);
+    usersDB = saved ? JSON.parse(saved) : {};
+}
+
+function saveUsersDB() {
+    localStorage.setItem(STORAGE_KEYS.USERS_DB, JSON.stringify(usersDB));
+}
+
+// Simple hash function (not cryptographically secure, but sufficient for client-side)
+function simpleHash(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32bit integer
+    }
+    return hash.toString(16);
+}
+
 // --- User Management ---
-function loadUser() {
+function loadCurrentUser() {
     const savedUser = localStorage.getItem(STORAGE_KEYS.USER);
     if (savedUser) {
         currentUser = JSON.parse(savedUser);
@@ -69,23 +126,84 @@ function loadUser() {
     }
 }
 
+function handleLogin(e) {
+    e.preventDefault();
+
+    const studentId = elements.loginStudentId.value.trim().toUpperCase();
+    const password = elements.loginPassword.value;
+
+    if (!studentId || !password) {
+        showToast('学籍番号とパスワードを入力してください', 'error');
+        return;
+    }
+
+    // Check if user exists
+    const user = usersDB[studentId];
+    if (!user) {
+        showToast('この学籍番号は登録されていません。「新規登録」から登録してください。', 'error');
+        return;
+    }
+
+    // Check password
+    if (user.passwordHash !== simpleHash(password)) {
+        showToast('パスワードが間違っています', 'error');
+        return;
+    }
+
+    // Login successful
+    currentUser = {
+        id: user.id,
+        name: user.name
+    };
+    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(currentUser));
+    showMainSection();
+    loadRecords();
+    showToast(`${user.name}さん、おかえりなさい！`);
+}
+
 function handleRegistration(e) {
     e.preventDefault();
 
     const studentId = elements.studentIdInput.value.trim().toUpperCase();
     const studentName = elements.studentNameInput.value.trim();
+    const password = elements.studentPassword.value;
+    const passwordConfirm = elements.studentPasswordConfirm.value;
 
-    if (!studentId || !studentName) {
-        showToast('学籍番号と氏名を入力してください', 'error');
+    if (!studentId || !studentName || !password) {
+        showToast('すべての項目を入力してください', 'error');
         return;
     }
 
-    currentUser = {
+    if (password.length < 4) {
+        showToast('パスワードは4文字以上にしてください', 'error');
+        return;
+    }
+
+    if (password !== passwordConfirm) {
+        showToast('パスワードが一致しません', 'error');
+        return;
+    }
+
+    // Check if already registered
+    if (usersDB[studentId]) {
+        showToast('この学籍番号は既に登録されています。「ログイン」からログインしてください。', 'error');
+        return;
+    }
+
+    // Register new user
+    usersDB[studentId] = {
         id: studentId,
         name: studentName,
+        passwordHash: simpleHash(password),
         registeredAt: new Date().toISOString()
     };
+    saveUsersDB();
 
+    // Auto-login
+    currentUser = {
+        id: studentId,
+        name: studentName
+    };
     localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(currentUser));
     showMainSection();
     loadRecords();
@@ -96,31 +214,45 @@ function handleLogout() {
     if (confirm('ログアウトしますか？\n（記録データは保持されます）')) {
         currentUser = null;
         localStorage.removeItem(STORAGE_KEYS.USER);
-        showRegistrationSection();
+        showAuthSection();
     }
 }
 
 function showMainSection() {
-    elements.registrationSection.classList.add('hidden');
+    elements.authSection.classList.add('hidden');
     elements.mainSection.classList.remove('hidden');
     elements.displayUserInfo.textContent = `${currentUser.id} - ${currentUser.name}`;
 }
 
-function showRegistrationSection() {
+function showAuthSection() {
     elements.mainSection.classList.add('hidden');
-    elements.registrationSection.classList.remove('hidden');
+    elements.authSection.classList.remove('hidden');
+    elements.loginForm.reset();
     elements.registrationForm.reset();
+    switchTab('login');
 }
 
 // --- Records Management ---
 function loadRecords() {
     const savedRecords = localStorage.getItem(STORAGE_KEYS.RECORDS);
-    records = savedRecords ? JSON.parse(savedRecords) : [];
+    const allRecords = savedRecords ? JSON.parse(savedRecords) : [];
+    // Filter records for current user
+    records = allRecords.filter(r => r.userId === currentUser.id);
     updateDisplay();
 }
 
 function saveRecords() {
-    localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(records));
+    // Load all records, update current user's, save back
+    const savedRecords = localStorage.getItem(STORAGE_KEYS.RECORDS);
+    let allRecords = savedRecords ? JSON.parse(savedRecords) : [];
+
+    // Remove current user's old records
+    allRecords = allRecords.filter(r => r.userId !== currentUser.id);
+
+    // Add current user's records
+    allRecords = [...allRecords, ...records];
+
+    localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(allRecords));
 }
 
 function handleRecordSubmit(e) {
@@ -153,7 +285,7 @@ function handleRecordSubmit(e) {
     const now = new Date();
     const record = {
         id: Date.now(),
-        oderId: currentUser.id,
+        userId: currentUser.id,
         userName: currentUser.name,
         field: field,
         attempted: attempted,

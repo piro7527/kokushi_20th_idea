@@ -18,10 +18,29 @@
             <a href="admin.html" class="admin-link">教員用ページ →</a>
         </header>
 
-        <!-- 登録画面 -->
-        <section id="registration-section" class="card">
-            <h2>👤 ユーザー登録</h2>
-            <form id="registration-form">
+        <!-- 登録/ログイン画面 -->
+        <section id="auth-section" class="card">
+            <!-- タブ切り替え -->
+            <div class="auth-tabs">
+                <button id="tab-login" class="auth-tab active">ログイン</button>
+                <button id="tab-register" class="auth-tab">新規登録</button>
+            </div>
+
+            <!-- ログインフォーム -->
+            <form id="login-form" class="auth-form">
+                <div class="form-group">
+                    <label for="login-student-id">学籍番号</label>
+                    <input type="text" id="login-student-id" placeholder="例: P22001" required>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">パスワード</label>
+                    <input type="password" id="login-password" placeholder="パスワード" required>
+                </div>
+                <button type="submit" class="btn btn-primary">ログイン</button>
+            </form>
+
+            <!-- 登録フォーム -->
+            <form id="registration-form" class="auth-form hidden">
                 <div class="form-group">
                     <label for="student-id">学籍番号</label>
                     <input type="text" id="student-id" placeholder="例: P22001" required>
@@ -29,6 +48,14 @@
                 <div class="form-group">
                     <label for="student-name">氏名</label>
                     <input type="text" id="student-name" placeholder="例: 山田 太郎" required>
+                </div>
+                <div class="form-group">
+                    <label for="student-password">パスワード</label>
+                    <input type="password" id="student-password" placeholder="4文字以上" required minlength="4">
+                </div>
+                <div class="form-group">
+                    <label for="student-password-confirm">パスワード（確認）</label>
+                    <input type="password" id="student-password-confirm" placeholder="もう一度入力" required minlength="4">
                 </div>
                 <button type="submit" class="btn btn-primary">登録して開始</button>
             </form>
