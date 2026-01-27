@@ -329,6 +329,9 @@
         });
 
         // --- Firestore Real-time Sync ---
+        let firestoreUpdateTimeout = null;
+        let isInitialLoad = true;
+
         function startFirestoreSync() {
             if (typeof db === 'undefined') {
                 console.warn('Firestore not available');
@@ -363,8 +366,20 @@
                 // Sort by timestamp descending
                 allRecords.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-                saveRecords();
-                updateDisplay();
+                // Debounce display updates to prevent flickering
+                if (firestoreUpdateTimeout) {
+                    clearTimeout(firestoreUpdateTimeout);
+                }
+
+                firestoreUpdateTimeout = setTimeout(() => {
+                    // Only save to localStorage on initial load, not on every update
+                    if (isInitialLoad) {
+                        saveRecords();
+                        isInitialLoad = false;
+                    }
+                    updateDisplay();
+                }, isInitialLoad ? 0 : 500);
+
             }, (error) => {
                 console.error('Firestore sync error:', error);
             });
