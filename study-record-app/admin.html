@@ -94,7 +94,42 @@
         .back-link:hover {
             background: rgba(255, 255, 255, 0.3);
         }
+
+        .sync-status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            margin-left: 12px;
+        }
+
+        .sync-status.connected {
+            background: rgba(0, 200, 83, 0.2);
+            color: #00c853;
+        }
+
+        .sync-status.disconnected {
+            background: rgba(255, 82, 82, 0.2);
+            color: #ff5252;
+        }
     </style>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyA_yLVKacdFu23fkv3uzEsmgsZfwSjivhw",
+            authDomain: "kokushi-study-record.firebaseapp.com",
+            projectId: "kokushi-study-record",
+            storageBucket: "kokushi-study-record.firebasestorage.app",
+            messagingSenderId: "1064513402081",
+            appId: "1:1064513402081:web:77e5cc63a0925800b573a0"
+        };
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+    </script>
 </head>
 
 <body>
@@ -288,7 +323,52 @@
             loadRecords();
             setupEventListeners();
             updateDisplay();
+
+            // Start real-time sync from Firestore
+            startFirestoreSync();
         });
+
+        // --- Firestore Real-time Sync ---
+        function startFirestoreSync() {
+            if (typeof db === 'undefined') {
+                console.warn('Firestore not available');
+                return;
+            }
+
+            // Listen for real-time updates from 'students' collection
+            db.collection('students').onSnapshot((snapshot) => {
+                console.log('Firestore update received');
+
+                // Clear existing Firestore records and reload
+                const firestoreRecords = [];
+
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    if (data.records && Array.isArray(data.records)) {
+                        data.records.forEach(record => {
+                            firestoreRecords.push({
+                                ...record,
+                                userId: data.studentId,
+                                userName: data.studentName,
+                                source: 'firestore'
+                            });
+                        });
+                    }
+                });
+
+                // Merge with existing records (remove old firestore records, add new ones)
+                allRecords = allRecords.filter(r => r.source !== 'firestore');
+                allRecords = [...allRecords, ...firestoreRecords];
+
+                // Sort by timestamp descending
+                allRecords.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+                saveRecords();
+                updateDisplay();
+            }, (error) => {
+                console.error('Firestore sync error:', error);
+            });
+        }
 
         function setupEventListeners() {
             // File upload

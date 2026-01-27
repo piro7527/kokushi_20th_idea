@@ -253,6 +253,33 @@ function saveRecords() {
     allRecords = [...allRecords, ...records];
 
     localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(allRecords));
+
+    // Sync to Firebase Firestore
+    syncToFirestore();
+}
+
+// Sync current user's records to Firestore
+function syncToFirestore() {
+    if (typeof db === 'undefined') {
+        console.warn('Firestore not available');
+        return;
+    }
+
+    // Save user's records as a document in 'students' collection
+    const userDoc = {
+        studentId: currentUser.id,
+        studentName: currentUser.name,
+        records: records,
+        lastUpdated: new Date().toISOString()
+    };
+
+    db.collection('students').doc(currentUser.id).set(userDoc)
+        .then(() => {
+            console.log('Records synced to Firestore');
+        })
+        .catch((error) => {
+            console.error('Error syncing to Firestore:', error);
+        });
 }
 
 function handleRecordSubmit(e) {
