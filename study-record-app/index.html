@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>国家試験対策 学習記録</title>
+    <meta name="description" content="3年生国家試験対策の学習進捗を記録・可視化するアプリケーション">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>📚 国家試験対策 学習記録</h1>
+            <p class="subtitle">3年生 2月対策</p>
+            <a href="admin.html" class="admin-link">教員用ページ →</a>
+        </header>
+
+        <!-- 登録画面 -->
+        <section id="registration-section" class="card">
+            <h2>👤 ユーザー登録</h2>
+            <form id="registration-form">
+                <div class="form-group">
+                    <label for="student-id">学籍番号</label>
+                    <input type="text" id="student-id" placeholder="例: P22001" required>
+                </div>
+                <div class="form-group">
+                    <label for="student-name">氏名</label>
+                    <input type="text" id="student-name" placeholder="例: 山田 太郎" required>
+                </div>
+                <button type="submit" class="btn btn-primary">登録して開始</button>
+            </form>
+        </section>
+
+        <!-- メイン画面 (登録後に表示) -->
+        <section id="main-section" class="hidden">
+            <!-- ユーザー情報 -->
+            <div class="user-info card">
+                <span id="display-user-info"></span>
+                <button id="logout-btn" class="btn btn-secondary btn-small">ログアウト</button>
+            </div>
+
+            <!-- 記録入力 -->
+            <div class="card">
+                <h2>✏️ 学習記録を入力</h2>
+                <form id="record-form">
+                    <div class="form-group">
+                        <label for="field-select">分野</label>
+                        <select id="field-select" required>
+                            <option value="">選択してください</option>
+                            <option value="解剖学">解剖学</option>
+                            <option value="生理学">生理学</option>
+                            <option value="運動学">運動学</option>
+                            <option value="病理学">病理学</option>
+                            <option value="臨床医学">臨床医学</option>
+                            <option value="リハビリテーション医学">リハビリテーション医学</option>
+                            <option value="理学療法評価学">理学療法評価学</option>
+                            <option value="理学療法治療学">理学療法治療学</option>
+                            <option value="地域理学療法学">地域理学療法学</option>
+                            <option value="その他">その他</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="questions-attempted">解いた問題数</label>
+                            <input type="number" id="questions-attempted" min="0" max="200" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="questions-correct">正答数</label>
+                            <input type="number" id="questions-correct" min="0" max="200" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">記録を保存</button>
+                </form>
+            </div>
+
+            <!-- 統計 -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="total-questions">0</div>
+                    <div class="stat-label">総問題数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="total-correct">0</div>
+                    <div class="stat-label">総正答数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="average-rate">0%</div>
+                    <div class="stat-label">平均正答率</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="total-records">0</div>
+                    <div class="stat-label">記録回数</div>
+                </div>
+            </div>
+
+            <!-- グラフ -->
+            <div class="card">
+                <h2>📈 正答率の推移</h2>
+                <div class="chart-container">
+                    <canvas id="progress-chart"></canvas>
+                </div>
+            </div>
+
+            <!-- 記録一覧 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>📋 記録一覧</h2>
+                    <button id="export-btn" class="btn btn-secondary btn-small">CSVダウンロード</button>
+                </div>
+                <div class="table-container">
+                    <table id="records-table">
+                        <thead>
+                            <tr>
+                                <th>日付</th>
+                                <th>時刻</th>
+                                <th>分野</th>
+                                <th>問題数</th>
+                                <th>正答数</th>
+                                <th>正答率</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="records-body">
+                        </tbody>
+                    </table>
+                </div>
+                <p id="no-records" class="no-records">まだ記録がありません</p>
+            </div>
+        </section>
+    </div>
+
+    <footer>
+        <p>© 2026 国家試験対策 学習記録システム</p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

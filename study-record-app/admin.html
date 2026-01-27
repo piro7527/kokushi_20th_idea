@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教員用ダッシュボード - 国家試験対策</title>
+    <meta name="description" content="全学生の学習記録を一括確認">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .container {
+            max-width: 1200px;
+        }
+
+        .upload-area {
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-area:hover,
+        .upload-area.dragover {
+            border-color: var(--accent-primary);
+            background: rgba(79, 140, 255, 0.1);
+        }
+
+        .upload-area input {
+            display: none;
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+
+        .filter-row {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .filter-row .form-group {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .student-table {
+            font-size: 0.85rem;
+        }
+
+        .student-table th,
+        .student-table td {
+            padding: 10px 8px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--accent-gradient);
+            transition: width 0.3s ease;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 12px;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            text-decoration: none;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            transition: var(--transition);
+        }
+
+        .back-link:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>👨‍🏫 教員用ダッシュボード</h1>
+            <p class="subtitle">全学生の学習記録管理</p>
+            <a href="index.html" class="back-link">← 学生用ページ</a>
+        </header>
+
+        <!-- データ読み込み -->
+        <div class="card">
+            <h2>📁 データ読み込み</h2>
+            <p style="margin-bottom: 16px; color: var(--text-secondary);">
+                学生から提出されたCSVファイルをドラッグ＆ドロップ、または選択して読み込みます。<br>
+                複数のCSVファイルを選択可能です。
+            </p>
+            <div class="upload-area" id="upload-area">
+                <div class="upload-icon">📂</div>
+                <p>CSVファイルをドラッグ＆ドロップ</p>
+                <p style="color: var(--text-secondary); font-size: 0.9rem;">または クリックして選択</p>
+                <input type="file" id="file-input" accept=".csv" multiple>
+            </div>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <button id="clear-btn" class="btn btn-secondary">データをクリア</button>
+                <button id="export-all-btn" class="btn btn-secondary">全データCSVダウンロード</button>
+            </div>
+        </div>
+
+        <!-- 統計サマリー -->
+        <div class="summary-grid" id="summary-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="total-students">0</div>
+                <div class="stat-label">登録学生数</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="total-records">0</div>
+                <div class="stat-label">総記録数</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="avg-rate">0%</div>
+                <div class="stat-label">全体平均正答率</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="total-questions">0</div>
+                <div class="stat-label">総問題数</div>
+            </div>
+        </div>
+
+        <!-- フィルター -->
+        <div class="card">
+            <h2>🔍 フィルター</h2>
+            <div class="filter-row">
+                <div class="form-group">
+                    <label for="filter-student">学籍番号</label>
+                    <input type="text" id="filter-student" placeholder="検索...">
+                </div>
+                <div class="form-group">
+                    <label for="filter-field">分野</label>
+                    <select id="filter-field">
+                        <option value="">すべて</option>
+                        <option value="解剖学">解剖学</option>
+                        <option value="生理学">生理学</option>
+                        <option value="運動学">運動学</option>
+                        <option value="病理学">病理学</option>
+                        <option value="臨床医学">臨床医学</option>
+                        <option value="リハビリテーション医学">リハビリテーション医学</option>
+                        <option value="理学療法評価学">理学療法評価学</option>
+                        <option value="理学療法治療学">理学療法治療学</option>
+                        <option value="地域理学療法学">地域理学療法学</option>
+                        <option value="その他">その他</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="filter-date">日付</label>
+                    <input type="date" id="filter-date">
+                </div>
+            </div>
+        </div>
+
+        <!-- 学生別サマリー -->
+        <div class="card">
+            <div class="card-header">
+                <h2>📊 学生別サマリー</h2>
+            </div>
+            <div class="table-container">
+                <table class="student-table" id="student-summary-table">
+                    <thead>
+                        <tr>
+                            <th>学籍番号</th>
+                            <th>氏名</th>
+                            <th>記録数</th>
+                            <th>総問題数</th>
+                            <th>平均正答率</th>
+                            <th>進捗</th>
+                        </tr>
+                    </thead>
+                    <tbody id="student-summary-body">
+                    </tbody>
+                </table>
+            </div>
+            <p id="no-students" class="no-records">データがありません</p>
+        </div>
+
+        <!-- 全記録 -->
+        <div class="card">
+            <div class="card-header">
+                <h2>📋 全記録一覧</h2>
+                <span id="record-count" style="color: var(--text-secondary);"></span>
+            </div>
+            <div class="table-container">
+                <table class="student-table" id="all-records-table">
+                    <thead>
+                        <tr>
+                            <th>学籍番号</th>
+                            <th>氏名</th>
+                            <th>日付</th>
+                            <th>時刻</th>
+                            <th>分野</th>
+                            <th>問題数</th>
+                            <th>正答数</th>
+                            <th>正答率</th>
+                        </tr>
+                    </thead>
+                    <tbody id="all-records-body">
+                    </tbody>
+                </table>
+            </div>
+            <p id="no-records" class="no-records">データがありません</p>
+        </div>
+    </div>
+
+    <footer>
+        <p>© 2026 国家試験対策 学習記録システム - 教員用</p>
+    </footer>
+
+    <script>
+        // ============================================
+        // 教員用ダッシュボード - admin.js
+        // ============================================
+
+        const STORAGE_KEY = 'kokushi_admin_records';
+        let allRecords = [];
+
+        // --- DOM Elements ---
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('file-input');
+        const clearBtn = document.getElementById('clear-btn');
+        const exportAllBtn = document.getElementById('export-all-btn');
+        const filterStudent = document.getElementById('filter-student');
+        const filterField = document.getElementById('filter-field');
+        const filterDate = document.getElementById('filter-date');
+
+        // --- Initialize ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Password protection
+            const correctPassword = 'ainopt20';
+            const sessionKey = 'kokushi_admin_auth';
+
+            // Check if already authenticated in this session
+            if (sessionStorage.getItem(sessionKey) !== 'true') {
+                const attempts = 3;
+                let authenticated = false;
+
+                for (let i = 0; i < attempts; i++) {
+                    const input = prompt(`教員用ダッシュボード\n\nパスワードを入力してください（残り ${attempts - i} 回）`);
+
+                    if (input === null) {
+                        // User cancelled
+                        window.location.href = 'index.html';
+                        return;
+                    }
+
+                    if (input === correctPassword) {
+                        authenticated = true;
+                        sessionStorage.setItem(sessionKey, 'true');
+                        break;
+                    } else {
+                        if (i < attempts - 1) {
+                            alert('パスワードが違います。もう一度お試しください。');
+                        }
+                    }
+                }
+
+                if (!authenticated) {
+                    alert('パスワードが間違っています。学生用ページに戻ります。');
+                    window.location.href = 'index.html';
+                    return;
+                }
+            }
+
+            loadRecords();
+            setupEventListeners();
+            updateDisplay();
+        });
+
+        function setupEventListeners() {
+            // File upload
+            uploadArea.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', handleFileSelect);
+
+            // Drag and drop
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
+            uploadArea.addEventListener('drop', handleDrop);
+
+            // Buttons
+            clearBtn.addEventListener('click', clearAllData);
+            exportAllBtn.addEventListener('click', exportAllData);
+
+            // Filters
+            filterStudent.addEventListener('input', updateDisplay);
+            filterField.addEventListener('change', updateDisplay);
+            filterDate.addEventListener('change', updateDisplay);
+        }
+
+        // --- File Handling ---
+        function handleDrop(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.csv'));
+            if (files.length > 0) {
+                processFiles(files);
+            }
+        }
+
+        function handleFileSelect(e) {
+            const files = Array.from(e.target.files);
+            if (files.length > 0) {
+                processFiles(files);
+            }
+        }
+
+        function processFiles(files) {
+            let processed = 0;
+            let newRecords = 0;
+
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const text = e.target.result;
+                    const records = parseCSV(text);
+                    newRecords += records.length;
+                    allRecords = [...allRecords, ...records];
+                    processed++;
+
+                    if (processed === files.length) {
+                        // Remove duplicates based on timestamp
+                        const seen = new Set();
+                        allRecords = allRecords.filter(r => {
+                            const key = `${r.userId}-${r.timestamp}`;
+                            if (seen.has(key)) return false;
+                            seen.add(key);
+                            return true;
+                        });
+
+                        saveRecords();
+                        updateDisplay();
+                        showToast(`${files.length}件のファイルから${newRecords}件の記録を読み込みました`);
+                    }
+                };
+                reader.readAsText(file);
+            });
+        }
+
+        function parseCSV(text) {
+            const lines = text.trim().split('\n');
+            if (lines.length < 2) return [];
+
+            const headers = lines[0].split(',').map(h => h.trim());
+            const records = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',').map(v => v.trim());
+                if (values.length >= 7) {
+                    records.push({
+                        userId: values[0],
+                        userName: values[1],
+                        date: values[2],
+                        time: values[3],
+                        field: values[4] || '',
+                        attempted: parseInt(values[5]) || 0,
+                        correct: parseInt(values[6]) || 0,
+                        rate: parseInt(values[7]) || 0,
+                        timestamp: `${values[2]}-${values[3]}`
+                    });
+                }
+            }
+
+            return records;
+        }
+
+        // --- Storage ---
+        function loadRecords() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            allRecords = saved ? JSON.parse(saved) : [];
+        }
+
+        function saveRecords() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecords));
+        }
+
+        function clearAllData() {
+            if (confirm('すべてのデータを削除しますか？')) {
+                allRecords = [];
+                saveRecords();
+                updateDisplay();
+                showToast('データをクリアしました');
+            }
+        }
+
+        // --- Display ---
+        function updateDisplay() {
+            const filtered = getFilteredRecords();
+            updateSummary(filtered);
+            updateStudentSummary(filtered);
+            updateRecordsTable(filtered);
+        }
+
+        function getFilteredRecords() {
+            let records = [...allRecords];
+
+            const studentFilter = filterStudent.value.toLowerCase();
+            const fieldFilter = filterField.value;
+            const dateFilter = filterDate.value;
+
+            if (studentFilter) {
+                records = records.filter(r =>
+                    r.userId.toLowerCase().includes(studentFilter) ||
+                    r.userName.toLowerCase().includes(studentFilter)
+                );
+            }
+
+            if (fieldFilter) {
+                records = records.filter(r => r.field === fieldFilter);
+            }
+
+            if (dateFilter) {
+                const dateStr = new Date(dateFilter).toLocaleDateString('ja-JP');
+                records = records.filter(r => r.date === dateStr);
+            }
+
+            return records;
+        }
+
+        function updateSummary(records) {
+            const students = new Set(records.map(r => r.userId));
+            const totalQuestions = records.reduce((sum, r) => sum + r.attempted, 0);
+            const totalCorrect = records.reduce((sum, r) => sum + r.correct, 0);
+            const avgRate = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+
+            document.getElementById('total-students').textContent = students.size;
+            document.getElementById('total-records').textContent = records.length;
+            document.getElementById('avg-rate').textContent = avgRate + '%';
+            document.getElementById('total-questions').textContent = totalQuestions.toLocaleString();
+        }
+
+        function updateStudentSummary(records) {
+            const studentMap = new Map();
+
+            records.forEach(r => {
+                if (!studentMap.has(r.userId)) {
+                    studentMap.set(r.userId, {
+                        userId: r.userId,
+                        userName: r.userName,
+                        recordCount: 0,
+                        totalAttempted: 0,
+                        totalCorrect: 0
+                    });
+                }
+                const student = studentMap.get(r.userId);
+                student.recordCount++;
+                student.totalAttempted += r.attempted;
+                student.totalCorrect += r.correct;
+            });
+
+            const students = Array.from(studentMap.values())
+                .map(s => ({
+                    ...s,
+                    avgRate: s.totalAttempted > 0 ? Math.round((s.totalCorrect / s.totalAttempted) * 100) : 0
+                }))
+                .sort((a, b) => a.userId.localeCompare(b.userId));
+
+            const tbody = document.getElementById('student-summary-body');
+            const noStudents = document.getElementById('no-students');
+
+            if (students.length === 0) {
+                tbody.innerHTML = '';
+                noStudents.classList.remove('hidden');
+                return;
+            }
+
+            noStudents.classList.add('hidden');
+
+            tbody.innerHTML = students.map(s => {
+                const rateClass = s.avgRate >= 80 ? 'rate-high' :
+                    s.avgRate >= 60 ? 'rate-medium' : 'rate-low';
+                return `
+                    <tr>
+                        <td>${s.userId}</td>
+                        <td>${s.userName}</td>
+                        <td>${s.recordCount}</td>
+                        <td>${s.totalAttempted}</td>
+                        <td class="${rateClass}">${s.avgRate}%</td>
+                        <td>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${s.avgRate}%"></div>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function updateRecordsTable(records) {
+            const tbody = document.getElementById('all-records-body');
+            const noRecords = document.getElementById('no-records');
+            const recordCount = document.getElementById('record-count');
+
+            recordCount.textContent = `(${records.length}件)`;
+
+            if (records.length === 0) {
+                tbody.innerHTML = '';
+                noRecords.classList.remove('hidden');
+                return;
+            }
+
+            noRecords.classList.add('hidden');
+
+            // Sort by date desc, then time desc
+            const sorted = [...records].sort((a, b) => {
+                const dateCompare = b.date.localeCompare(a.date);
+                if (dateCompare !== 0) return dateCompare;
+                return b.time.localeCompare(a.time);
+            });
+
+            tbody.innerHTML = sorted.slice(0, 500).map(r => {
+                const rateClass = r.rate >= 80 ? 'rate-high' :
+                    r.rate >= 60 ? 'rate-medium' : 'rate-low';
+                return `
+                    <tr>
+                        <td>${r.userId}</td>
+                        <td>${r.userName}</td>
+                        <td>${r.date}</td>
+                        <td>${r.time}</td>
+                        <td>${r.field || '-'}</td>
+                        <td>${r.attempted}</td>
+                        <td>${r.correct}</td>
+                        <td class="${rateClass}">${r.rate}%</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // --- Export ---
+        function exportAllData() {
+            if (allRecords.length === 0) {
+                showToast('エクスポートするデータがありません', 'error');
+                return;
+            }
+
+            const headers = ['学籍番号', '氏名', '日付', '時刻', '分野', '問題数', '正答数', '正答率(%)'];
+            const csvContent = [
+                headers.join(','),
+                ...allRecords.map(r => [
+                    r.userId,
+                    r.userName,
+                    r.date,
+                    r.time,
+                    r.field,
+                    r.attempted,
+                    r.correct,
+                    r.rate
+                ].join(','))
+            ].join('\n');
+
+            const bom = '\uFEFF';
+            const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `全学生記録_${new Date().toISOString().slice(0, 10)}.csv`;
+            link.click();
+            URL.revokeObjectURL(url);
+
+            showToast('CSVをダウンロードしました');
+        }
+
+        // --- Toast ---
+        function showToast(message, type = 'success') {
+            const existing = document.querySelector('.toast');
+            if (existing) existing.remove();
+
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            if (type === 'error') toast.style.background = '#ff5252';
+
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+    </script>
+</body>
+
+</html>
