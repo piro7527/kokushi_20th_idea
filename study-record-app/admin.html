@@ -12,21 +12,11 @@
             max-width: 1200px;
         }
 
-        .upload-area {
-            border: 2px dashed rgba(255, 255, 255, 0.2);
-            border-radius: 12px;
-            padding: 40px;
-            text-align: center;
+        .data-management {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
             margin-bottom: 20px;
-        }
-
-        .upload-area input {
-            display: none;
-        }
-
-        .upload-icon {
-            font-size: 3rem;
-            margin-bottom: 16px;
         }
 
         .filter-row {
@@ -125,24 +115,7 @@
             <p class="subtitle">全学生の学習記録管理</p>
         </header>
 
-        <!-- データ読み込み -->
-        <div class="card">
-            <h2>📁 データ読み込み</h2>
-            <p style="margin-bottom: 16px; color: var(--text-secondary);">
-                学生から提出されたCSVファイルをドラッグ＆ドロップ、または選択して読み込みます。<br>
-                複数のCSVファイルを選択可能です。
-            </p>
-            <div class="upload-area" id="upload-area">
-                <div class="upload-icon">📂</div>
-                <p>CSVファイルをドラッグ＆ドロップ</p>
-                <p style="color: var(--text-secondary); font-size: 0.9rem;">または クリックして選択</p>
-                <input type="file" id="file-input" accept=".csv" multiple>
-            </div>
-            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                <button id="clear-btn" class="btn btn-secondary">データをクリア</button>
-                <button id="export-all-btn" class="btn btn-secondary">全データCSVダウンロード</button>
-            </div>
-        </div>
+
 
         <!-- 統計サマリー -->
         <div class="summary-grid" id="summary-grid">
@@ -162,6 +135,12 @@
                 <div class="stat-value" id="total-questions">0</div>
                 <div class="stat-label">総問題数</div>
             </div>
+        </div>
+
+        <!-- データ管理 -->
+        <div class="data-management">
+            <button id="export-all-btn" class="btn btn-secondary">📥 全データCSVダウンロード</button>
+            <button id="clear-btn" class="btn btn-secondary">🗑️ データをクリア</button>
         </div>
 
         <!-- フィルター -->
@@ -260,8 +239,6 @@
         let allRecords = [];
 
         // --- DOM Elements ---
-        const uploadArea = document.getElementById('upload-area');
-        const fileInput = document.getElementById('file-input');
         const clearBtn = document.getElementById('clear-btn');
         const exportAllBtn = document.getElementById('export-all-btn');
         const filterStudent = document.getElementById('filter-student');
@@ -372,20 +349,6 @@
         }
 
         function setupEventListeners() {
-            // File upload
-            uploadArea.addEventListener('click', () => fileInput.click());
-            fileInput.addEventListener('change', handleFileSelect);
-
-            // Drag and drop
-            uploadArea.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                uploadArea.classList.add('dragover');
-            });
-            uploadArea.addEventListener('dragleave', () => {
-                uploadArea.classList.remove('dragover');
-            });
-            uploadArea.addEventListener('drop', handleDrop);
-
             // Buttons
             clearBtn.addEventListener('click', clearAllData);
             exportAllBtn.addEventListener('click', exportAllData);
@@ -396,81 +359,9 @@
             filterDate.addEventListener('change', updateDisplay);
         }
 
-        // --- File Handling ---
-        function handleDrop(e) {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
-            const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.csv'));
-            if (files.length > 0) {
-                processFiles(files);
-            }
-        }
 
-        function handleFileSelect(e) {
-            const files = Array.from(e.target.files);
-            if (files.length > 0) {
-                processFiles(files);
-            }
-        }
 
-        function processFiles(files) {
-            let processed = 0;
-            let newRecords = 0;
 
-            files.forEach(file => {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const text = e.target.result;
-                    const records = parseCSV(text);
-                    newRecords += records.length;
-                    allRecords = [...allRecords, ...records];
-                    processed++;
-
-                    if (processed === files.length) {
-                        // Remove duplicates based on timestamp
-                        const seen = new Set();
-                        allRecords = allRecords.filter(r => {
-                            const key = `${r.userId}-${r.timestamp}`;
-                            if (seen.has(key)) return false;
-                            seen.add(key);
-                            return true;
-                        });
-
-                        saveRecords();
-                        updateDisplay();
-                        showToast(`${files.length}件のファイルから${newRecords}件の記録を読み込みました`);
-                    }
-                };
-                reader.readAsText(file);
-            });
-        }
-
-        function parseCSV(text) {
-            const lines = text.trim().split('\n');
-            if (lines.length < 2) return [];
-
-            const headers = lines[0].split(',').map(h => h.trim());
-            const records = [];
-
-            for (let i = 1; i < lines.length; i++) {
-                const values = lines[i].split(',').map(v => v.trim());
-                if (values.length >= 7) {
-                    records.push({
-                        userId: values[0],
-                        userName: values[1],
-                        date: values[2],
-                        time: values[3],
-                        field: values[4] || '',
-                        attempted: parseInt(values[5]) || 0,
-                        correct: parseInt(values[6]) || 0,
-                        rate: parseInt(values[7]) || 0,
-                        timestamp: `${values[2]}-${values[3]}`
-                    });
-                }
-            }
-
-            return records;
-        }
 
         // --- Storage ---
         function loadRecords() {
