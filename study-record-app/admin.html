@@ -162,6 +162,8 @@
 
         <!-- データ管理 -->
         <div class="data-management">
+            <button id="export-filtered-btn" class="btn btn-secondary">📥 表示中のCSVダウンロード (<span
+                    id="filtered-count">0</span>件)</button>
             <button id="export-all-btn" class="btn btn-secondary">📥 全データCSVダウンロード</button>
             <button id="delete-selected-btn" class="btn btn-secondary" disabled>🗑️ 選択を削除 (<span
                     id="selected-count">0</span>件)</button>
@@ -301,6 +303,8 @@
         // --- DOM Elements ---
         const clearBtn = document.getElementById('clear-btn');
         const exportAllBtn = document.getElementById('export-all-btn');
+        const exportFilteredBtn = document.getElementById('export-filtered-btn');
+        const filteredCountSpan = document.getElementById('filtered-count');
         const deleteSelectedBtn = document.getElementById('delete-selected-btn');
         const selectedCountSpan = document.getElementById('selected-count');
         const selectAllCheckbox = document.getElementById('select-all-checkbox');
@@ -421,6 +425,7 @@
             // Buttons
             clearBtn.addEventListener('click', clearAllData);
             exportAllBtn.addEventListener('click', exportAllData);
+            exportFilteredBtn.addEventListener('click', exportFilteredData);
             deleteSelectedBtn.addEventListener('click', deleteSelectedRecords);
 
             // Select all checkbox
@@ -573,6 +578,8 @@
             updateSummary(filtered);
             updateStudentSummary(filtered);
             updateRecordsTable(filtered);
+            // Update filtered count for export button
+            filteredCountSpan.textContent = filtered.length;
         }
 
         function getFilteredRecords() {
@@ -749,6 +756,40 @@
             URL.revokeObjectURL(url);
 
             showToast('CSVをダウンロードしました');
+        }
+
+        function exportFilteredData() {
+            const filtered = getFilteredRecords();
+            if (filtered.length === 0) {
+                showToast('エクスポートするデータがありません', 'error');
+                return;
+            }
+
+            const headers = ['学籍番号', '氏名', '日付', '時刻', '分野', '問題数', '正答数', '正答率(%)'];
+            const csvContent = [
+                headers.join(','),
+                ...filtered.map(r => [
+                    r.userId,
+                    r.userName,
+                    r.date,
+                    r.time,
+                    r.field,
+                    r.attempted,
+                    r.correct,
+                    r.rate
+                ].join(','))
+            ].join('\n');
+
+            const bom = '\uFEFF';
+            const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `学習記録_フィルター済み_${new Date().toISOString().slice(0, 10)}.csv`;
+            link.click();
+            URL.revokeObjectURL(url);
+
+            showToast(`${filtered.length}件のデータをダウンロードしました`);
         }
 
         // --- Toast ---
