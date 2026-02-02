@@ -88,6 +88,29 @@
             background: rgba(255, 82, 82, 0.2);
             color: #ff5252;
         }
+
+        #delete-selected-btn:not(:disabled) {
+            background: rgba(255, 82, 82, 0.8);
+            color: white;
+        }
+
+        #delete-selected-btn:not(:disabled):hover {
+            background: rgba(255, 82, 82, 1);
+        }
+
+        .record-checkbox,
+        #select-all-checkbox {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: var(--accent-primary);
+        }
+
+        .student-table th:first-child,
+        .student-table td:first-child {
+            width: 40px;
+            text-align: center;
+        }
     </style>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -140,7 +163,9 @@
         <!-- データ管理 -->
         <div class="data-management">
             <button id="export-all-btn" class="btn btn-secondary">📥 全データCSVダウンロード</button>
-            <button id="clear-btn" class="btn btn-secondary">🗑️ データをクリア</button>
+            <button id="delete-selected-btn" class="btn btn-secondary" disabled>🗑️ 選択を削除 (<span
+                    id="selected-count">0</span>件)</button>
+            <button id="clear-btn" class="btn btn-secondary">🗑️ 全データクリア</button>
         </div>
 
         <!-- フィルター -->
@@ -242,6 +267,7 @@
                 <table class="student-table" id="all-records-table">
                     <thead>
                         <tr>
+                            <th><input type="checkbox" id="select-all-checkbox" title="全選択/全解除"></th>
                             <th>学籍番号</th>
                             <th>氏名</th>
                             <th>日付</th>
@@ -275,9 +301,15 @@
         // --- DOM Elements ---
         const clearBtn = document.getElementById('clear-btn');
         const exportAllBtn = document.getElementById('export-all-btn');
+        const deleteSelectedBtn = document.getElementById('delete-selected-btn');
+        const selectedCountSpan = document.getElementById('selected-count');
+        const selectAllCheckbox = document.getElementById('select-all-checkbox');
         const filterStudent = document.getElementById('filter-student');
         const filterField = document.getElementById('filter-field');
         const filterDate = document.getElementById('filter-date');
+
+        // --- Selection State ---
+        let selectedRecordIds = new Set();
 
         // --- Initialize ---
         document.addEventListener('DOMContentLoaded', () => {
@@ -345,9 +377,12 @@
                 snapshot.forEach((doc) => {
                     const data = doc.data();
                     if (data.records && Array.isArray(data.records)) {
-                        data.records.forEach(record => {
+                        data.records.forEach((record, index) => {
                             firestoreRecords.push({
                                 ...record,
+                                id: `${doc.id}_${index}`,
+                                docId: doc.id,
+                                recordIndex: index,
                                 userId: data.studentId,
                                 userName: data.studentName,
                                 source: 'firestore'
@@ -386,6 +421,10 @@
             // Buttons
             clearBtn.addEventListener('click', clearAllData);
             exportAllBtn.addEventListener('click', exportAllData);
+            deleteSelectedBtn.addEventListener('click', deleteSelectedRecords);
+
+            // Select all checkbox
+            selectAllCheckbox.addEventListener('change', toggleSelectAll);
 
             // Filters
             filterStudent.addEventListener('input', updateDisplay);
@@ -410,9 +449,121 @@
         function clearAllData() {
             if (confirm('すべてのデータを削除しますか？')) {
                 allRecords = [];
+                selectedRecordIds.clear();
                 saveRecords();
                 updateDisplay();
+                updateSelectionUI();
                 showToast('データをクリアしました');
+            }
+        }
+
+        // --- Selection Functions ---
+        function toggleSelectAll() {
+            const filtered = getFilteredRecords();
+            if (selectAllCheckbox.checked) {
+                // Select all filtered records
+                filtered.forEach(r => selectedRecordIds.add(r.id));
+            } else {
+                // Deselect all filtered records
+                filtered.forEach(r => selectedRecordIds.delete(r.id));
+            }
+            updateSelectionUI();
+            updateRecordsTable(filtered);
+        }
+
+        function toggleRecordSelection(recordId, checkbox) {
+            if (checkbox.checked) {
+                selectedRecordIds.add(recordId);
+            } else {
+                selectedRecordIds.delete(recordId);
+            }
+            updateSelectionUI();
+            updateSelectAllCheckbox();
+        }
+
+        function updateSelectionUI() {
+            const count = selectedRecordIds.size;
+            selectedCountSpan.textContent = count;
+            deleteSelectedBtn.disabled = count === 0;
+        }
+
+        function updateSelectAllCheckbox() {
+            const filtered = getFilteredRecords();
+            const filteredIds = filtered.map(r => r.id);
+            const selectedInFiltered = filteredIds.filter(id => selectedRecordIds.has(id));
+
+            if (selectedInFiltered.length === 0) {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = false;
+            } else if (selectedInFiltered.length === filteredIds.length) {
+                selectAllCheckbox.checked = true;
+                selectAllCheckbox.indeterminate = false;
+            } else {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = true;
+            }
+        }
+
+        async function deleteSelectedRecords() {
+            const count = selectedRecordIds.size;
+            if (count === 0) {
+                showToast('削除するレコードが選択されていません', 'error');
+                return;
+            }
+
+            if (!confirm(`選択した ${count} 件のレコードを削除しますか？\n\n※ Firestoreからも削除されます。`)) {
+                return;
+            }
+
+            try {
+                // Group records by Firestore document
+                const deleteByDoc = new Map();
+
+                selectedRecordIds.forEach(recordId => {
+                    const record = allRecords.find(r => r.id === recordId);
+                    if (record && record.source === 'firestore' && record.docId) {
+                        if (!deleteByDoc.has(record.docId)) {
+                            deleteByDoc.set(record.docId, []);
+                        }
+                        deleteByDoc.get(record.docId).push(record.recordIndex);
+                    }
+                });
+
+                // Delete from Firestore
+                for (const [docId, indices] of deleteByDoc) {
+                    const docRef = db.collection('students').doc(docId);
+                    const docSnap = await docRef.get();
+
+                    if (docSnap.exists) {
+                        const data = docSnap.data();
+                        if (data.records && Array.isArray(data.records)) {
+                            // Sort indices in descending order to delete from end first
+                            const sortedIndices = indices.sort((a, b) => b - a);
+                            let newRecords = [...data.records];
+
+                            sortedIndices.forEach(index => {
+                                if (index >= 0 && index < newRecords.length) {
+                                    newRecords.splice(index, 1);
+                                }
+                            });
+
+                            await docRef.update({ records: newRecords });
+                        }
+                    }
+                }
+
+                // Remove from local records
+                allRecords = allRecords.filter(r => !selectedRecordIds.has(r.id));
+                selectedRecordIds.clear();
+
+                saveRecords();
+                updateDisplay();
+                updateSelectionUI();
+
+                showToast(`${count} 件のレコードを削除しました`);
+            } catch (error) {
+                console.error('Delete error:', error);
+                showToast('削除中にエラーが発生しました', 'error');
             }
         }
 
@@ -529,6 +680,8 @@
             if (records.length === 0) {
                 tbody.innerHTML = '';
                 noRecords.classList.remove('hidden');
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = false;
                 return;
             }
 
@@ -544,8 +697,10 @@
             tbody.innerHTML = sorted.slice(0, 500).map(r => {
                 const rateClass = r.rate >= 80 ? 'rate-high' :
                     r.rate >= 60 ? 'rate-medium' : 'rate-low';
+                const isChecked = selectedRecordIds.has(r.id) ? 'checked' : '';
                 return `
                     <tr>
+                        <td><input type="checkbox" class="record-checkbox" data-id="${r.id}" ${isChecked} onchange="toggleRecordSelection('${r.id}', this)"></td>
                         <td>${r.userId}</td>
                         <td>${r.userName}</td>
                         <td>${r.date}</td>
@@ -557,6 +712,9 @@
                     </tr>
                 `;
             }).join('');
+
+            // Update select all checkbox state
+            updateSelectAllCheckbox();
         }
 
         // --- Export ---
