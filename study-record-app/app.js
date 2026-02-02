@@ -126,10 +126,20 @@ function loadCurrentUser() {
     }
 }
 
+// Helper to normalize Student ID (Full-width to Half-width, UpperCase)
+function normalizeId(str) {
+    if (!str) return '';
+    // Convert full-width to half-width
+    const halfWidth = str.replace(/[Ａ-Ｚａ-ｚ０-９]/g, function (s) {
+        return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
+    });
+    return halfWidth.trim().toUpperCase();
+}
+
 function handleLogin(e) {
     e.preventDefault();
 
-    const studentId = elements.loginStudentId.value.trim().toUpperCase();
+    const studentId = normalizeId(elements.loginStudentId.value);
     const password = elements.loginPassword.value;
 
     if (!studentId || !password) {
@@ -138,7 +148,15 @@ function handleLogin(e) {
     }
 
     // Check if user exists
-    const user = usersDB[studentId];
+    let user = usersDB[studentId];
+    if (!user) {
+        // Fallback: Check if any existing key normalizes to this ID (for legacy Full-width users)
+        const foundKey = Object.keys(usersDB).find(key => normalizeId(key) === studentId);
+        if (foundKey) {
+            user = usersDB[foundKey];
+        }
+    }
+
     if (!user) {
         showToast('この学籍番号は登録されていません。「新規登録」から登録してください。', 'error');
         return;
@@ -164,7 +182,7 @@ function handleLogin(e) {
 function handleRegistration(e) {
     e.preventDefault();
 
-    const studentId = elements.studentIdInput.value.trim().toUpperCase();
+    const studentId = normalizeId(elements.studentIdInput.value);
     const studentName = elements.studentNameInput.value.trim();
     const password = elements.studentPassword.value;
     const passwordConfirm = elements.studentPasswordConfirm.value;
@@ -184,8 +202,9 @@ function handleRegistration(e) {
         return;
     }
 
-    // Check if already registered
-    if (usersDB[studentId]) {
+    // Check if already registered (Direct or Normalized)
+    const existingKey = Object.keys(usersDB).find(key => normalizeId(key) === studentId);
+    if (existingKey) {
         showToast('この学籍番号は既に登録されています。「ログイン」からログインしてください。', 'error');
         return;
     }
