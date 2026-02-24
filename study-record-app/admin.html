@@ -111,6 +111,45 @@
             width: 40px;
             text-align: center;
         }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+
+        .pagination button {
+            padding: 6px 14px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 6px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .pagination button:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .pagination button:disabled {
+            opacity: 0.35;
+            cursor: default;
+        }
+
+        .pagination button.active {
+            background: var(--accent-primary);
+            color: white;
+            border-color: var(--accent-primary);
+        }
+
+        .pagination .page-info {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
     </style>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -256,6 +295,7 @@
                     </tbody>
                 </table>
             </div>
+            <div class="pagination" id="student-pagination"></div>
             <p id="no-students" class="no-records">データがありません</p>
         </div>
 
@@ -284,6 +324,7 @@
                     </tbody>
                 </table>
             </div>
+            <div class="pagination" id="records-pagination"></div>
             <p id="no-records" class="no-records">データがありません</p>
         </div>
     </div>
@@ -314,6 +355,13 @@
 
         // --- Selection State ---
         let selectedRecordIds = new Set();
+
+        // --- Pagination State ---
+        const PAGE_SIZE = 50;
+        let studentPage = 1;
+        let recordsPage = 1;
+        let cachedStudents = [];
+        let cachedFilteredRecords = [];
 
         // --- Initialize ---
         document.addEventListener('DOMContentLoaded', () => {
@@ -574,6 +622,9 @@
 
         // --- Display ---
         function updateDisplay() {
+            // Reset pagination when filters change
+            studentPage = 1;
+            recordsPage = 1;
             const filtered = getFilteredRecords();
             updateSummary(filtered);
             updateStudentSummary(filtered);
@@ -639,7 +690,7 @@
                 student.totalCorrect += r.correct;
             });
 
-            const students = Array.from(studentMap.values())
+            cachedStudents = Array.from(studentMap.values())
                 .map(s => ({
                     ...s,
                     avgRate: s.totalAttempted > 0 ? Math.round((s.totalCorrect / s.totalAttempted) * 100) : 0
@@ -649,15 +700,23 @@
             const tbody = document.getElementById('student-summary-body');
             const noStudents = document.getElementById('no-students');
 
-            if (students.length === 0) {
+            if (cachedStudents.length === 0) {
                 tbody.innerHTML = '';
                 noStudents.classList.remove('hidden');
+                document.getElementById('student-pagination').innerHTML = '';
                 return;
             }
 
             noStudents.classList.add('hidden');
 
-            tbody.innerHTML = students.map(s => {
+            // Clamp page
+            const totalPages = Math.ceil(cachedStudents.length / PAGE_SIZE);
+            if (studentPage > totalPages) studentPage = totalPages;
+
+            const start = (studentPage - 1) * PAGE_SIZE;
+            const pageData = cachedStudents.slice(start, start + PAGE_SIZE);
+
+            tbody.innerHTML = pageData.map(s => {
                 const rateClass = s.avgRate >= 80 ? 'rate-high' :
                     s.avgRate >= 60 ? 'rate-medium' : 'rate-low';
                 return `
@@ -675,6 +734,11 @@
                     </tr>
                 `;
             }).join('');
+
+            renderPagination('student-pagination', cachedStudents.length, studentPage, (p) => {
+                studentPage = p;
+                updateStudentSummary(getFilteredRecords());
+            });
         }
 
         function updateRecordsTable(records) {
@@ -689,19 +753,27 @@
                 noRecords.classList.remove('hidden');
                 selectAllCheckbox.checked = false;
                 selectAllCheckbox.indeterminate = false;
+                document.getElementById('records-pagination').innerHTML = '';
                 return;
             }
 
             noRecords.classList.add('hidden');
 
             // Sort by date desc, then time desc
-            const sorted = [...records].sort((a, b) => {
+            cachedFilteredRecords = [...records].sort((a, b) => {
                 const dateCompare = b.date.localeCompare(a.date);
                 if (dateCompare !== 0) return dateCompare;
                 return b.time.localeCompare(a.time);
             });
 
-            tbody.innerHTML = sorted.slice(0, 500).map(r => {
+            // Clamp page
+            const totalPages = Math.ceil(cachedFilteredRecords.length / PAGE_SIZE);
+            if (recordsPage > totalPages) recordsPage = totalPages;
+
+            const start = (recordsPage - 1) * PAGE_SIZE;
+            const pageData = cachedFilteredRecords.slice(start, start + PAGE_SIZE);
+
+            tbody.innerHTML = pageData.map(r => {
                 const rateClass = r.rate >= 80 ? 'rate-high' :
                     r.rate >= 60 ? 'rate-medium' : 'rate-low';
                 const isChecked = selectedRecordIds.has(r.id) ? 'checked' : '';
@@ -722,6 +794,74 @@
 
             // Update select all checkbox state
             updateSelectAllCheckbox();
+
+            renderPagination('records-pagination', cachedFilteredRecords.length, recordsPage, (p) => {
+                recordsPage = p;
+                updateRecordsTable(getFilteredRecords());
+            });
+        }
+
+        // --- Pagination Renderer ---
+        function renderPagination(containerId, totalItems, currentPage, onPageChange) {
+            const container = document.getElementById(containerId);
+            const totalPages = Math.ceil(totalItems / PAGE_SIZE);
+
+            if (totalPages <= 1) {
+                container.innerHTML = '';
+                return;
+            }
+
+            let html = '';
+
+            // Prev button
+            html += `<button onclick="this._handler()" ${currentPage === 1 ? 'disabled' : ''}>◀ 前へ</button>`;
+
+            // Page numbers (show max 7 pages around current)
+            const maxButtons = 7;
+            let startP = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+            let endP = Math.min(totalPages, startP + maxButtons - 1);
+            if (endP - startP < maxButtons - 1) startP = Math.max(1, endP - maxButtons + 1);
+
+            if (startP > 1) {
+                html += `<button onclick="this._handler()">1</button>`;
+                if (startP > 2) html += `<span class="page-info">...</span>`;
+            }
+
+            for (let i = startP; i <= endP; i++) {
+                html += `<button class="${i === currentPage ? 'active' : ''}" onclick="this._handler()">${i}</button>`;
+            }
+
+            if (endP < totalPages) {
+                if (endP < totalPages - 1) html += `<span class="page-info">...</span>`;
+                html += `<button onclick="this._handler()">${totalPages}</button>`;
+            }
+
+            // Next button
+            html += `<button onclick="this._handler()" ${currentPage === totalPages ? 'disabled' : ''}>次へ ▶</button>`;
+
+            // Page info
+            html += `<span class="page-info">${(currentPage - 1) * PAGE_SIZE + 1}-${Math.min(currentPage * PAGE_SIZE, totalItems)}件 / 全${totalItems}件</span>`;
+
+            container.innerHTML = html;
+
+            // Attach handlers
+            const buttons = container.querySelectorAll('button');
+            let btnIdx = 0;
+            // Prev
+            buttons[btnIdx++]._handler = () => onPageChange(currentPage - 1);
+            // Page numbers
+            if (startP > 1) {
+                buttons[btnIdx++]._handler = () => onPageChange(1);
+            }
+            for (let i = startP; i <= endP; i++) {
+                const page = i;
+                buttons[btnIdx++]._handler = () => onPageChange(page);
+            }
+            if (endP < totalPages) {
+                buttons[btnIdx++]._handler = () => onPageChange(totalPages);
+            }
+            // Next
+            buttons[btnIdx++]._handler = () => onPageChange(currentPage + 1);
         }
 
         // --- Export ---

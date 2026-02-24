@@ -104,12 +104,6 @@ header .subtitle {
     margin-bottom: 20px;
     box-shadow: var(--shadow);
     border: 1px solid rgba(255, 255, 255, 0.05);
-    transition: var(--transition);
-}
-
-.card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
 }
 
 .card h2 {
@@ -252,11 +246,6 @@ header .subtitle {
     text-align: center;
     box-shadow: var(--shadow);
     border: 1px solid rgba(255, 255, 255, 0.05);
-    transition: var(--transition);
-}
-
-.stat-card:hover {
-    transform: scale(1.02);
 }
 
 .stat-value {
@@ -310,9 +299,7 @@ td {
     font-size: 0.95rem;
 }
 
-tr:hover td {
-    background: rgba(255, 255, 255, 0.02);
-}
+/* tr:hover removed for performance with large tables */
 
 .rate-high {
     color: var(--success);
@@ -385,22 +372,7 @@ footer {
     }
 }
 
-/* Animations */
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.card {
-    animation: fadeIn 0.4s ease;
-}
+/* fadeIn animation removed for performance */
 
 /* Toast Notification */
 .toast {
