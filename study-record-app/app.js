@@ -240,12 +240,17 @@ async function handleRegistration(e) {
         localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(currentUser));
         
         // Initialize records storage for this user
-        await db.collection('students').doc(studentId).set({
-             studentId: studentId,
-             studentName: studentName,
-             records: [],
-             lastUpdated: new Date().toISOString()
-        });
+        const studentDocRef = db.collection('students').doc(studentId);
+        const studentDoc = await studentDocRef.get();
+
+        if (!studentDoc.exists) {
+            await studentDocRef.set({
+                 studentId: studentId,
+                 studentName: studentName,
+                 records: [],
+                 lastUpdated: new Date().toISOString()
+            });
+        }
 
         showMainSection();
         records = [];
